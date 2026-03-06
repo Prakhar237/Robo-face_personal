@@ -2,19 +2,29 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Experimental AI Live Chat Agent 🤖
 
-This contains everything you need to run your app locally.
+Welcome to this experimental AI live chat agent project! This application features a highly interactive and visually engaging robotic AI face with cool animations that respond to your conversations in real-time.
 
-View your app in AI Studio: https://ai.studio/apps/db013308-cd9a-451c-9157-ab0eb35a80c5
+## Features ✨
 
-## Run Locally
+- **Live Chat Interface:** Have natural conversations with the AI.
+- **Cool Animations:** The robot face reacts and animates dynamically based on the interaction.
+- **Powered by Gemini:** Uses the Gemini API for intelligent responses.
 
-**Prerequisites:**  Node.js
+## Run Locally 🚀
 
+**Prerequisites:** Node.js
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+   ```bash
+   npm install
+   ```
+2. Set your API key in the `.env.local` file:
+   ```env
+   VITE_API_KEY=your_gemini_api_key_here
+   ```
 3. Run the app:
-   `npm run dev`
+   ```bash
+   npm run dev
+   ```
