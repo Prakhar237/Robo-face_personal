@@ -119,17 +119,21 @@ export class GeminiLiveClient {
     const workletNode = new AudioWorkletNode(this.inputContext, 'pcm-processor');
 
     workletNode.port.onmessage = (event) => {
+      if (!this.isConnected || !this.session) return;
+
       const float32 = event.data as Float32Array;
       const pcm16 = floatTo16BitPCM(float32);
       const base64 = arrayBufferToBase64(pcm16);
 
-      if (this.session) {
+      try {
         this.session.sendRealtimeInput({
           media: {
             mimeType: 'audio/pcm;rate=16000',
             data: base64
           }
         });
+      } catch (e) {
+        console.warn("Skipped sending audio chunk: connection closing");
       }
     };
 
