@@ -91,7 +91,7 @@ export class GeminiLiveClient {
         onopen: () => {
           this.isConnected = true;
           this.callbacks.onOpen();
-          this.startAudioInput(this.session);
+          this.startAudioInput();
         },
         onmessage: (message: LiveServerMessage) => {
           this.handleMessage(message);
@@ -107,7 +107,7 @@ export class GeminiLiveClient {
     });
   }
 
-  private async startAudioInput(session: any) {
+  private async startAudioInput() {
     if (!this.inputContext || !this.stream) return;
 
     // Load the AudioWorklet processor
@@ -123,12 +123,14 @@ export class GeminiLiveClient {
       const pcm16 = floatTo16BitPCM(float32);
       const base64 = arrayBufferToBase64(pcm16);
 
-      session.sendRealtimeInput({
-        media: {
-          mimeType: 'audio/pcm;rate=16000',
-          data: base64
-        }
-      });
+      if (this.session) {
+        this.session.sendRealtimeInput({
+          media: {
+            mimeType: 'audio/pcm;rate=16000',
+            data: base64
+          }
+        });
+      }
     };
 
     this.inputSource.connect(workletNode);

@@ -66,11 +66,12 @@ const RobotFace: React.FC<RobotFaceProps> = ({ state, width = '100%', height = '
           setActiveVideoIndex(nextIndex);
           setCurrentSrc(src);
 
-          // Give it time to fade in before we pause the old one (assuming 500ms transition)
           setTimeout(() => {
             if (activeRef.current) activeRef.current.pause();
           }, 600);
-        }).catch(e => console.error("Seamless playback failed", e));
+        }).catch(e => {
+          if (e.name !== 'AbortError') console.error("Seamless playback failed", e);
+        });
       };
       nextRef.current.load();
     }
@@ -80,7 +81,9 @@ const RobotFace: React.FC<RobotFaceProps> = ({ state, width = '100%', height = '
       activeRef.current.src = src;
       activeRef.current.loop = loop;
       activeRef.current.load();
-      activeRef.current.play().catch(e => console.error("Initial playback failed", e));
+      activeRef.current.play().catch(e => {
+        if (e.name !== 'AbortError') console.error("Initial playback failed", e);
+      });
       setCurrentSrc(src);
     }
 
