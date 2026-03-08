@@ -49,7 +49,7 @@ export class GeminiLiveClient {
   private session: any = null;
   private inputContext: AudioContext | null = null;
   private outputContext: AudioContext | null = null;
-  private inputProcessor: ScriptProcessorNode | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private inputSource: MediaStreamAudioSourceNode | null = null;
   private stream: MediaStream | null = null;
 
@@ -116,9 +116,9 @@ export class GeminiLiveClient {
     this.inputSource = this.inputContext.createMediaStreamSource(this.stream);
 
     // Create worklet node — runs off main thread, 128-sample buffer (8ms latency vs 256ms)
-    const workletNode = new AudioWorkletNode(this.inputContext, 'pcm-processor');
+    this.workletNode = new AudioWorkletNode(this.inputContext, 'pcm-processor');
 
-    workletNode.port.onmessage = (event) => {
+    this.workletNode.port.onmessage = (event) => {
       if (!this.isConnected || !this.session) return;
 
       const float32 = event.data as Float32Array;
@@ -134,10 +134,11 @@ export class GeminiLiveClient {
         });
       } catch (e) {
         console.warn("Skipped sending audio chunk: connection closing");
+        this.disconnect();
       }
     };
 
-    this.inputSource.connect(workletNode);
+    this.inputSource.connect(this.workletNode);
     // Note: Do NOT connect workletNode to destination — we don't want to hear mic playback
   }
 
@@ -223,7 +224,11 @@ export class GeminiLiveClient {
     this.stopAllAudio();
 
     // Cleanup Input
-    this.inputProcessor?.disconnect();
+    if (this.workletNode) {
+      this.workletNode.port.onmessage = null;
+      this.workletNode.disconnect();
+      this.workletNode = null;
+    }
     this.inputSource?.disconnect();
     this.stream?.getTracks().forEach(t => t.stop());
     if (this.inputContext && this.inputContext.state !== 'closed') {
