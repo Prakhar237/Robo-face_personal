@@ -46,6 +46,7 @@ export interface LiveClientCallbacks {
 
 export class GeminiLiveClient {
   private ai: GoogleGenAI;
+  private session: any = null;
   private inputContext: AudioContext | null = null;
   private outputContext: AudioContext | null = null;
   private inputProcessor: ScriptProcessorNode | null = null;
@@ -77,8 +78,8 @@ export class GeminiLiveClient {
     this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     // Connect to Gemini Live
-    const sessionPromise = this.ai.live.connect({
-      model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+    this.session = await this.ai.live.connect({
+      model: 'gemini-live-2.5-flash-native-audio',
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
@@ -90,7 +91,7 @@ export class GeminiLiveClient {
         onopen: () => {
           this.isConnected = true;
           this.callbacks.onOpen();
-          this.startAudioInput(sessionPromise);
+          this.startAudioInput(this.session);
         },
         onmessage: (message: LiveServerMessage) => {
           this.handleMessage(message);
@@ -106,30 +107,32 @@ export class GeminiLiveClient {
     });
   }
 
-  private startAudioInput(sessionPromise: Promise<any>) {
+  private async startAudioInput(session: any) {
     if (!this.inputContext || !this.stream) return;
 
-    this.inputSource = this.inputContext.createMediaStreamSource(this.stream);
-    // Use ScriptProcessor for raw PCM access (bufferSize, inputChannels, outputChannels)
-    this.inputProcessor = this.inputContext.createScriptProcessor(4096, 1, 1);
+    // Load the AudioWorklet processor
+    await this.inputContext.audioWorklet.addModule('/audio-processor.worklet.js');
 
-    this.inputProcessor.onaudioprocess = (e) => {
-      const inputData = e.inputBuffer.getChannelData(0);
-      const pcm16 = floatTo16BitPCM(inputData);
+    this.inputSource = this.inputContext.createMediaStreamSource(this.stream);
+
+    // Create worklet node — runs off main thread, 128-sample buffer (8ms latency vs 256ms)
+    const workletNode = new AudioWorkletNode(this.inputContext, 'pcm-processor');
+
+    workletNode.port.onmessage = (event) => {
+      const float32 = event.data as Float32Array;
+      const pcm16 = floatTo16BitPCM(float32);
       const base64 = arrayBufferToBase64(pcm16);
 
-      sessionPromise.then(session => {
-        session.sendRealtimeInput({
-          media: {
-            mimeType: 'audio/pcm;rate=16000',
-            data: base64
-          }
-        });
+      session.sendRealtimeInput({
+        media: {
+          mimeType: 'audio/pcm;rate=16000',
+          data: base64
+        }
       });
     };
 
-    this.inputSource.connect(this.inputProcessor);
-    this.inputProcessor.connect(this.inputContext.destination);
+    this.inputSource.connect(workletNode);
+    // Note: Do NOT connect workletNode to destination — we don't want to hear mic playback
   }
 
   private async handleMessage(message: LiveServerMessage) {
@@ -210,6 +213,7 @@ export class GeminiLiveClient {
 
   disconnect() {
     this.isConnected = false;
+    this.session = null;
     this.stopAllAudio();
 
     // Cleanup Input
