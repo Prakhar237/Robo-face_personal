@@ -61,6 +61,7 @@ export class GeminiLiveClient {
 
   // State
   private isConnected = false;
+  private isSending = false;
 
   constructor(callbacks: LiveClientCallbacks) {
     this.ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_API_KEY });
@@ -108,6 +109,7 @@ export class GeminiLiveClient {
   }
 
   private async startAudioInput() {
+    this.isSending = false;
     if (!this.inputContext || !this.stream) return;
 
     // Load the AudioWorklet processor
@@ -119,7 +121,7 @@ export class GeminiLiveClient {
     this.workletNode = new AudioWorkletNode(this.inputContext, 'pcm-processor');
 
     this.workletNode.port.onmessage = (event) => {
-      if (!this.isConnected || !this.session) return;
+      if (!this.isSending || !this.session) return;
 
       const float32 = event.data as Float32Array;
       const pcm16 = floatTo16BitPCM(float32);
@@ -134,11 +136,12 @@ export class GeminiLiveClient {
         });
       } catch (e) {
         console.warn("Skipped sending audio chunk: connection closing");
-        this.disconnect();
+        this.isSending = false;
       }
     };
 
     this.inputSource.connect(this.workletNode);
+    this.isSending = true;
     // Note: Do NOT connect workletNode to destination — we don't want to hear mic playback
   }
 
@@ -219,8 +222,9 @@ export class GeminiLiveClient {
   }
 
   disconnect() {
-    this.isConnected = false;
+    this.isSending = false;
     this.session = null;
+    this.isConnected = false;
     this.stopAllAudio();
 
     // Cleanup Input
